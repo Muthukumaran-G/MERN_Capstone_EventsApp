@@ -1,0 +1,19 @@
+{
+    "events": [
+      {
+        "id": 1,
+        "title": "Concert A",
+        "description": "A great concert happening soon!",
+        "date": "2025-05-01",
+        "venue": "Stadium A"
+      },
+      {
+        "id": 2,
+        "title": "Concert B",
+        "description": "Don't miss this awesome show!",
+        "date": "2025-06-15",
+        "venue": "Arena B"
+      }
+    ]
+  }
+  
