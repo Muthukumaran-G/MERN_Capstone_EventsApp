@@ -1,0 +1,134 @@
+version: '3.4'
+
+networks:
+  microservice:
+
+services:
+  apigateway:
+    image: apigateway
+    build:
+      context: .
+      dockerfile: ApiGateway/Dockerfile
+    networks:
+      - microservice
+    ports:
+      - "8000:80"
+    depends_on:
+      - consul
+    environment:
+      - JWT_SecretKey=This_is_my_super_secret_key_12345678910!
+      - JWT_Issuer=auth_service
+      - JWT_Audience=user_service
+      - JWT_ExpiryMinutes=60
+
+  authenticationservice:
+    image: ${DOCKER_REGISTRY-}authenticationservice
+    build:
+      context: .
+      dockerfile: AuthenticationService/Dockerfile
+    networks:
+      - microservice
+    ports:
+      - "8001:80"
+    environment:
+      - DB_HOST=sqldb
+      - DB_NAME=AuthDB
+      - DB_SA_PASSWORD=password@12345#
+      - JWT_SecretKey=This_is_my_super_secret_key_12345678910!
+      - JWT_Issuer=auth_service
+      - JWT_Audience=user_service
+      - JWT_ExpiryMinutes=60
+    depends_on:
+      - sqldb
+      - kafka
+      - consul
+
+  eventservice:
+    image: ${DOCKER_REGISTRY-}eventservice
+    build:
+      context: .
+      dockerfile: EventService/Dockerfile
+    networks:
+      - microservice
+    ports:
+      - "8002:80"
+    depends_on:
+      - consul
+
+  userprofileservice:
+    image: ${DOCKER_REGISTRY-}userprofileservice
+    ports:
+      - "8003:80"
+    build:
+      context: .
+      dockerfile: UserProfileService/Dockerfile
+    environment:
+      - DB_HOST=sqldb
+      - DB_NAME=UserProfileDB
+      - DB_SA_PASSWORD=password@12345#
+    depends_on:
+      - sqldb
+      - kafka
+      - consul
+    networks:
+      - microservice
+      
+  wishlistservice:
+    image: ${DOCKER_REGISTRY-}wishlistservice
+    build:
+      context: .
+      dockerfile: WishlistService/Dockerfile
+    environment:
+      - DB_HOST=sqldb
+      - DB_NAME=WishlistDB
+      - DB_SA_PASSWORD=password@12345#
+    depends_on:
+      - sqldb
+      - consul
+    networks:
+      - microservice
+
+  sqldb:
+    container_name: services-db
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    ports:
+      - "8004:1433"
+    environment:
+      - SA_PASSWORD=password@12345#
+      - ACCEPT_EULA=Y
+    networks:
+      - microservice
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: zookeeper
+    environment:
+      - ZOOKEEPER_CLIENT_PORT=2181
+    networks:
+      - microservice
+
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      - KAFKA_BROKER_ID=1
+      - KAFKA_ZOOKEEPER_CONNECT=zookeeper:2181
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=true
+    networks:
+      - microservice
+
+  consul:
+    image: hashicorp/consul:latest
+    container_name: consul
+    ports:
+      - "8500:8500"
+      - "8600:8600/udp"
+    command: "agent -dev -client=0.0.0.0"
+    networks:
+      - microservice
